@@ -38,6 +38,7 @@
 #include "SecondaryTableController.h"
 
 const char* SecondaryTableController::LOCAL_MANGLE_OUTPUT = "st_mangle_OUTPUT";
+const char* SecondaryTableController::LOCAL_MANGLE_POSTROUTING = "st_mangle_POSTROUTING";
 const char* SecondaryTableController::LOCAL_MANGLE_EXEMPT = "st_mangle_EXEMPT";
 const char* SecondaryTableController::LOCAL_MANGLE_IFACE_FORMAT = "st_mangle_%s_OUTPUT";
 const char* SecondaryTableController::LOCAL_NAT_POSTROUTING = "st_nat_POSTROUTING";
@@ -347,6 +348,18 @@ int SecondaryTableController::setFwmarkRule(const char *iface, bool add) {
                 "0",
                 NULL);
 
+        /* Best effort, because some kernels might not have the needed TCPMSS */
+        execIptables(V4V6,
+                "-t",
+                "mangle",
+                "-A",
+                LOCAL_MANGLE_POSTROUTING,
+                "-p", "tcp", "-o", iface, "--tcp-flags", "SYN,RST", "SYN",
+                "-j",
+                "TCPMSS",
+                "--clamp-mss-to-pmtu",
+                NULL);
+
     } else {
         ret = execIptables(V4V6,
                 "-t",
@@ -374,6 +387,18 @@ int SecondaryTableController::setFwmarkRule(const char *iface, bool add) {
                 "mangle",
                 "-X",
                 chain_str,
+                NULL);
+
+        /* Best effort, because some kernels might not have the needed TCPMSS */
+        execIptables(V4V6,
+                "-t",
+                "mangle",
+                "-D",
+                LOCAL_MANGLE_POSTROUTING,
+                "-p", "tcp", "-o", iface, "--tcp-flags", "SYN,RST", "SYN",
+                "-j",
+                "TCPMSS",
+                "--clamp-mss-to-pmtu",
                 NULL);
     }
 
